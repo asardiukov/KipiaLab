@@ -87,5 +87,5 @@ tr:hover { background: #f8fafc; }
 .import-diff-cell { background-color: #ffdddd !important; font-weight: bold; }
 .match-row { background-color: #d1fae5 !important; }
 .mismatch-row { background-color: #fee2e2 !important; }
-.warning-row { background-color: #ffedd5 !important; }
+.warning-row { background-color: #f2dbbd !important; }
 .compare-summary { margin-top: 15px; font-weight: bold; padding: 8px; border-top: 1px solid var(--border); }

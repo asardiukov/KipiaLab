@@ -20,7 +20,7 @@
         <li class="nav-item" onclick="navTo('import')" id="nav-import">📥 Загрузка списков</li>
         <li class="nav-item" onclick="navTo('reports')" id="nav-reports">📊 Отчёты и Динамика</li>
         <li class="nav-item" onclick="navTo('settings')" id="nav-settings">⚙️ Настройки и Шаблоны</li>
-        
+   
         <div class="nav-category">Проведение ЛПЗ</div>
         <script>
             for(let i=1; i<=10; i++) document.write(`<li class="nav-item" onclick="navTo('lab', ${i})" id="nav-lab-${i}">🧪 ЛПР №${i}</li>`);
@@ -150,7 +150,6 @@
                         <div id="statusProtocol" style="font-size: 0.85em; margin-top: 5px;"></div>
                     </div>
                 </div>
-
                 <div style="flex: 1; min-width: 300px; border: 1px solid var(--border); padding: 15px; border-radius: 8px;">
                     <h3>💾 Резервное копирование БД</h3>
                     <p style="font-size: 0.85em; color: #64748b;">Выгружайте базу для сохранности или загружайте старую базу V1.</p>
@@ -158,7 +157,11 @@
                     <br><br>
                     <button class="btn btn-danger" onclick="document.getElementById('fileImportDB').click()">Восстановить из файла (.json)</button>
                     <input type="file" id="fileImportDB" class="hidden-input" accept=".json" onchange="importDB(event)">
-                </div>
+                    <br><br>
+                    <button class="btn btn-outline" style="border-color: #0ea5e9; color: #0ea5e9; font-weight: bold;" onclick="testBackendConnection()">
+                    📞 Тестовый звонок на Бэкенд
+                    </button>
+                 </div>
             </div>
         </div>
 

@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  # 1. Твой интерфейс (Nginx)
+  frontend:
+    build: ./frontend
+    container_name: kiplab-frontend
+    ports:
+      - "8000:80"
+    volumes:
+      # Пробрасываем твой код прямо в веб-сервер.
+      # Теперь при изменении HTML/JS не нужно перезапускать Докер!
+      - ./frontend:/usr/share/nginx/html
+    restart: always
+
+  # 2. Твой новый Бэкенд (Node.js)
+  backend:
+    build: ./backend
+    container_name: kiplab-backend
+    ports:
+      - "3001:3001"
+    volumes:
+      # Пробрасываем папку с кодом внутрь контейнера.
+      # Nodemon будет видеть изменения и сам перезапускать сервер!
+      - ./backend:/app
+      # Исключаем папку node_modules из проброса (чтобы использовать ту, что внутри Linux)
+      - /app/node_modules
+    restart: always
+
+  # 3. База данных (PostgreSQL)
+  db:
+    image: postgres:15-alpine
+    container_name: kiplab-db
+    environment:
+      POSTGRES_USER: kiplab_user
+      POSTGRES_PASSWORD: super_secret_password
+      POSTGRES_DB: kiplab_data
+    volumes:
+      # Данные базы храним в безопасном виртуальном диске
+      - pg_data:/var/lib/postgresql/data
+    restart: always
+
+volumes:
+  pg_data:

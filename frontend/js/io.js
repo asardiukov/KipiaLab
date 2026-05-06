@@ -154,7 +154,21 @@ function renderCharts() {
         options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, scales: { x: { min: 0, max: 100 } } }
     });
 }
-
+async function testBackendConnection() {
+    try {
+        // Звоним нашему Кладовщику по сети
+        let response = await fetch('http://localhost:3001/api/test');
+        
+        // Ждем, пока он ответит, и распаковываем JSON
+        let data = await response.json();
+        
+        // Показываем ответ на экране
+        alert("🎉 Успех! Сервер ответил: " + data.message);
+    } catch (error) {
+        alert("❌ Ошибка! Не удалось дозвониться до сервера. Он точно запущен?");
+        console.error(error);
+    }
+}
 function printStudentReport() {
     if(!gradingFio) return;
     let s = db.students[gradingFio];

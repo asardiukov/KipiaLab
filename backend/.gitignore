@@ -1,0 +1,13 @@
+# Зависимости Node.js
+node_modules/
+
+# Логи и ошибки
+npm-debug.log*
+*.log
+
+# Временные файлы Docker и БД (если вдруг они вылезут наружу)
+pg_data/
+
+# Системные файлы ОС
+.DS_Store
+Thumbs.db
