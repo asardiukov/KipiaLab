@@ -152,12 +152,18 @@
                 </div>
                 <div style="flex: 1; min-width: 300px; border: 1px solid var(--border); padding: 15px; border-radius: 8px;">
                     <h3>💾 Резервное копирование БД</h3>
-                    <p style="font-size: 0.85em; color: #64748b;">Выгружайте базу для сохранности или загружайте старую базу V1.</p>
-                    <button class="btn btn-success" onclick="exportDB()">Сохранить базу (.json)</button>
+                    <p style="font-size: 0.85em; color: #64748b;">Управляйте данными: сохраняйте в облако (на сервер) или скачивайте локально.</p>
+                    
+                    <button id="saveBtn" class="btn btn-primary" style="background-color: #3b82f6; color: white; width: 100%; margin-bottom: 15px; font-weight: bold;">
+                        ☁️ Сохранить базу на сервер
+                    </button>
+
+                    <button class="btn btn-success" onclick="exportDB()">Сохранить копию на ПК (.json)</button>
                     <br><br>
-                    <button class="btn btn-danger" onclick="document.getElementById('fileImportDB').click()">Восстановить из файла (.json)</button>
+                    <button class="btn btn-danger" onclick="document.getElementById('fileImportDB').click()">Восстановить с ПК (.json)</button>
                     <input type="file" id="fileImportDB" class="hidden-input" accept=".json" onchange="importDB(event)">
                     <br><br>
+                    
                     <button class="btn btn-outline" style="border-color: #0ea5e9; color: #0ea5e9; font-weight: bold;" onclick="testBackendConnection()">
                     📞 Тестовый звонок на Бэкенд
                     </button>

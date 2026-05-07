@@ -178,25 +178,96 @@ function hasParticipated(s, labNum) {
     return s.labs[labNum].attempts.some(a => Object.keys(a.levels).length > 0 || a.legacy_score || a.absent || a.status);
 }
 
+// Функция отправки данных на сервер
+async function saveToServer(data) {
+    try {
+        const response = await fetch('/api/save', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        });
+
+        if (!response.ok) {
+            throw new Error(`Ошибка HTTP: ${response.status}`);
+        }
+
+        console.log('Данные успешно синхронизированы с сервером.');
+        alert('Изменения сохранены!'); // Позже можно заменить на красивое всплывающее уведомление
+
+    } catch (error) {
+        console.error('Ошибка при сохранении данных:', error);
+        alert('Сбой сети или сервер недоступен. Данные не сохранены.');
+    }
+}
+
+// 1. Исправленный тестовый звонок (на порт 3001)
+window.testBackendConnection = async function() {
+    console.log("Проверяем связь с бэкендом на порту 3001...");
+    try {
+        // Указываем полный путь к бэкенду
+        const response = await fetch('http://localhost:3001/api/test'); 
+        const data = await response.json();
+        
+        if (response.ok) {
+            alert(`Бэкенд на связи! Ответ: ${data.message} 🚀`);
+        }
+    } catch (error) {
+        console.error('Ошибка связи:', error);
+        alert('Бэкенд на порту 3001 НЕ отвечает. Проверь Docker!');
+    }
+};
+
+// 2. Исправленное сохранение (на порт 3001)
+window.saveToServer = async function(data) {
+    console.log("Отправка данных на http://localhost:3001/api/save...");
+    try {
+        const response = await fetch('http://localhost:3001/api/save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+
+        if (response.ok) {
+            alert('✅ Синхронизировано с PostgreSQL и файлом!');
+        } else {
+            throw new Error(`Ошибка сервера: ${response.status}`);
+        }
+    } catch (error) {
+        console.error('Ошибка сохранения:', error);
+        alert('❌ Ошибка: Бэкенд не принял данные. Проверь консоль Докера.');
+    }
+};
+
+// 3. ЧИСТКА: Найди и УДАЛИ старый кусок кода (примерно на 209 строке),
+// который содержит слово appData. Он больше не нужен!// 3. ЗАПУСК ПРИ ЗАГРУЗКЕ СТРАНИЦЫ
 window.addEventListener('DOMContentLoaded', async () => {
-    // 1. Пытаемся забрать свежайшие данные из Докера
+    // Сначала оживляем кнопку "Сохранить"
+    const saveBtn = document.getElementById('saveBtn');
+    if (saveBtn) {
+        saveBtn.onclick = () => {
+            console.log("Кнопка 'Сохранить на сервер' нажата. Отправляю переменную db...");
+            
+            // Проверяем существование переменной db
+            if (typeof db !== 'undefined' && db !== null) {
+                window.saveToServer(db); 
+            } else {
+                alert("Ошибка: Переменная 'db' не инициализирована.");
+            }
+        };
+    }
+    // Затем грузим данные с сервера для отображения
     const isLoaded = await loadDBFromServer();
     
     if (isLoaded) {
-        console.log("🚀 Данные из PostgreSQL получены. Обновляю интерфейс...");
-        
-        // 2. Вызываем твои функции отрисовки по очереди
-        // Сначала вкладки и таблицы (структура)
+        console.log("🚀 Данные получены. Обновляю интерфейс...");
         renderLabTabs(); 
         renderLabTable(); 
-        
-        // Затем графики (аналитика)
         renderCharts(); 
-        
         console.log("✨ Интерфейс синхронизирован!");
     } else {
-        console.log("🏠 Работаем на локальных данных (localStorage)");
-        // Если сервер не ответил, всё равно рисуем то, что есть в localStorage
+        console.log("🏠 Работаем на локальных данных");
         renderLabTabs();
         renderLabTable();
         renderCharts();
