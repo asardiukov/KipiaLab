@@ -35,7 +35,46 @@ if (!db) {
     saveDB();
 }
 
-function saveDB() { localStorage.setItem('kipia_v4_db', JSON.stringify(db)); }
+async function saveDB() {
+    // 1. По-прежнему сохраняем локально (локальный бэкап на случай, если сервер упадет)
+    localStorage.setItem('kipia_v5_db', JSON.stringify(db));
+
+    // 2. Отправляем на наш Бэкенд в Докере
+    try {
+        const response = await fetch('http://localhost:3001/api/save', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(db) // Отправляем весь твой объект db
+        });
+
+        if (response.ok) {
+            console.log("✅ Данные успешно синхронизированы с PostgreSQL");
+        } else {
+            console.error("⚠️ Сервер принял запрос, но ответил ошибкой");
+        }
+    } catch (error) {
+        // Если докер выключен или нет сети, ты увидишь это в консоли
+        console.error("❌ Не удалось связаться с Бэкендом:", error);
+    }
+}
+async function loadDBFromServer() {
+    try {
+        const response = await fetch('http://localhost:3001/api/load');
+        if (response.ok) {
+            const remoteDb = await response.json();
+            if (remoteDb) {
+                db = remoteDb;
+                console.log("📦 База данных успешно загружена из PostgreSQL");
+                return true;
+            }
+        }
+    } catch (error) {
+        console.warn("⚠️ Не удалось загрузить данные с сервера, использую локальную копию");
+    }
+    return false;
+}
 function cleanStr(s) { return s ? String(s).trim() : ""; }
 
 // Расчет баллов
@@ -138,3 +177,28 @@ function hasParticipated(s, labNum) {
     if (!s.labs || !s.labs[labNum]) return false;
     return s.labs[labNum].attempts.some(a => Object.keys(a.levels).length > 0 || a.legacy_score || a.absent || a.status);
 }
+
+window.addEventListener('DOMContentLoaded', async () => {
+    // 1. Пытаемся забрать свежайшие данные из Докера
+    const isLoaded = await loadDBFromServer();
+    
+    if (isLoaded) {
+        console.log("🚀 Данные из PostgreSQL получены. Обновляю интерфейс...");
+        
+        // 2. Вызываем твои функции отрисовки по очереди
+        // Сначала вкладки и таблицы (структура)
+        renderLabTabs(); 
+        renderLabTable(); 
+        
+        // Затем графики (аналитика)
+        renderCharts(); 
+        
+        console.log("✨ Интерфейс синхронизирован!");
+    } else {
+        console.log("🏠 Работаем на локальных данных (localStorage)");
+        // Если сервер не ответил, всё равно рисуем то, что есть в localStorage
+        renderLabTabs();
+        renderLabTable();
+        renderCharts();
+    }
+});
