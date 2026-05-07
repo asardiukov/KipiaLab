@@ -179,26 +179,28 @@ function hasParticipated(s, labNum) {
 }
 
 // Функция отправки данных на сервер
-async function saveToServer(data) {
+window.saveToServer = async function(data) {
+    // Эта строчка сама возьмет IP/домен, через который ты открыл сайт
+    const serverIp = window.location.hostname; 
+    const url = `http://${serverIp}:3001/api/save`;
+
+    console.log("Отправляю данные на:", url);
+
     try {
-        const response = await fetch('/api/save', {
+        const response = await fetch(url, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
         });
 
-        if (!response.ok) {
-            throw new Error(`Ошибка HTTP: ${response.status}`);
+        if (response.ok) {
+            alert('✅ Данные успешно синхронизированы!');
+        } else {
+            alert('❌ Ошибка сервера: ' + response.status);
         }
-
-        console.log('Данные успешно синхронизированы с сервером.');
-        alert('Изменения сохранены!'); // Позже можно заменить на красивое всплывающее уведомление
-
     } catch (error) {
-        console.error('Ошибка при сохранении данных:', error);
-        alert('Сбой сети или сервер недоступен. Данные не сохранены.');
+        console.error('Ошибка:', error);
+        alert('❌ Не удалось достучаться до бэкенда по адресу ' + url);
     }
 }
 
