@@ -1,3 +1,18 @@
+// ГЛОБАЛЬНЫЕ НАСТРОЙКИ ПРИЛОЖЕНИЯ
+window.PASS_THRESHOLD = 70; // Замени 3.5 на свой реальный проходной балл (например, 3, 4 или 70)
+
+let currentNav = 'dashboard', currentLab = 1, currentAttempt = 0, currentGroup = null, gradingFio = null, tempLevels = {};
+
+window.saveDB = function() {
+    console.log("🔄 Старый код вызвал saveDB! Перехватываем и пускаем по новым рельсам...");
+    if (typeof window.updateDb === 'function') {
+        window.updateDb(window.db); // Обновляем стейт и перерисовываем Дашборд
+    }
+    if (typeof window.saveToServer === 'function') {
+        window.saveToServer(window.db); // Отправляем в PostgreSQL
+    }
+};
+
 // Навигация
 function navTo(page, labNum = null) {
     document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
@@ -39,26 +54,6 @@ function navTo(page, labNum = null) {
         renderLabTabs();
     }
     currentNav = page;
-}
-
-function updateGroupFilters() {
-    let groups = new Set(); for (let fio in db.students) groups.add(db.students[fio].group);
-    let html = '<option value="all">Все группы</option>';
-    Array.from(groups).sort().forEach(g => html += `<option value="${g}">${g}</option>`);
-    if(document.getElementById('dashGroupFilter')) document.getElementById('dashGroupFilter').innerHTML = html;
-    if(document.getElementById('exportGroupSelect')) document.getElementById('exportGroupSelect').innerHTML = html;
-    if(document.getElementById('reportGroupFilter')) document.getElementById('reportGroupFilter').innerHTML = html;
-}
-
-// Отрисовка Дашборда
-function renderDashboard() {
-    let gFilter = document.getElementById('dashGroupFilter').value, search = document.getElementById('dashSearch').value.toLowerCase();
-    let tbody = document.getElementById('dashTbody'); tbody.innerHTML = '';
-    for (let fio in db.students) {
-        let s = db.students[fio]; if (s.status !== 'active' || (gFilter !== 'all' && s.group !== gFilter) || (search && !fio.toLowerCase().includes(search))) continue;
-        let stats = getStudentStats(s, fio);
-        tbody.innerHTML += `<tr class="clickable-row" onclick="openGlobalCard('${fio}')"><td>${fio}</td><td>${s.group}</td><td style="font-weight:bold; color:var(--primary);">${stats.avgScore}</td><td><button class="btn btn-outline" style="padding:4px 8px; font-size:12px;">Карточка студента</button></td></tr>`;
-    }
 }
 
 // Глобальная карточка

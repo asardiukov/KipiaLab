@@ -1,83 +1,73 @@
-// Глобальные константы и переменные состояния
-const ATTEMPT_NAMES = ["Основа", "Пересдача", "Комиссия", "Характеристика"];
-const PASS_THRESHOLD = 70.0;
+// 1. ЖЕЛЕЗОБЕТОННЫЙ ПРЕДОХРАНИТЕЛЬ
+window.isDataLoadedFromServer = false;
+import { state } from './state.js';
+// 2. ФУНКЦИЯ СОХРАНЕНИЯ
+window.saveToServer = async function(data) {
+    if (window.isDataLoadedFromServer !== true) {
+        console.warn("⚠️ Блокировка сохранения: данные не загружены с сервера!");
+        return { status: "blocked" };
+    }
+
+    try {
+        console.log("Отправляем данные на сервер...");
+        const res = await fetch('/api/save', { 
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        
+        if (!res.ok) throw new Error(`Ошибка HTTP: ${res.status}`);
+        return await res.json();
+    } catch (err) {
+        console.error("❌ Ошибка при сохранении:", err);
+        throw err; 
+    }
+};
+
+// ... в функции loadDBFromServer не забудь поменять на:
+// window.isDataLoadedFromServer = true;
 
 let chart1 = null, chart2 = null, chart3 = null, chart4 = null;
-let currentNav = 'dashboard', currentLab = 1, currentAttempt = 0, currentGroup = null, gradingFio = null, tempLevels = {};
 let importPreviewData = null;
 
-// Инициализация и миграция базы
-let db = JSON.parse(localStorage.getItem('kipia_v4_db'));
+// Инициализация и миграция базы (ТЕПЕРЬ ВЕЗДЕ V5)
+let db = JSON.parse(localStorage.getItem('kipia_v5_db'));
 
 if (!db) {
-    let oldDbV1 = JSON.parse(localStorage.getItem('lpr_db'));
-    let oldDbV3 = JSON.parse(localStorage.getItem('kipia_v3_db'));
+    let oldDbV4 = JSON.parse(localStorage.getItem('kipia_v4_db')); // Пытаемся достать прошлую версию
     
-    if (oldDbV3) { db = oldDbV3; } 
-    else {
+    if (oldDbV4) { 
+        db = oldDbV4; 
+    } else {
         db = { students: {}, labs_meta: {}, tpl_vedomost: null, tpl_protocol: null };
         for(let i=1; i<=10; i++) db.labs_meta[i] = { topic: "", month: "", criteria: [] };
-        if (oldDbV1) {
-            for (let fio in oldDbV1) {
-                let o = oldDbV1[fio]; if(typeof o !== 'object' || !o.group) continue;
-                let newS = { group: o.group, status: o.status || 'active', labs: {} };
-                for(let i=1; i<=10; i++) {
-                    let oldL = o.labs[i] || {scores:['','','',''], remarks:[]};
-                    newS.labs[i] = {
-                        attempts: [0,1,2,3].map(a => ({ levels: {}, absent: oldL.scores[a]==='Н', legacy_score: oldL.scores[a]==='Н'?'':oldL.scores[a] })),
-                        remarks: oldL.remarks || []
-                    };
-                }
-                db.students[fio] = newS;
-            }
-        }
     }
-    saveDB();
+    saveDB(); // Сразу пересохраняем в v5
 }
 
+// Функция-обертка для совместимости со старым кодом
 async function saveDB() {
-    // 1. По-прежнему сохраняем локально (локальный бэкап на случай, если сервер упадет)
-    localStorage.setItem('kipia_v5_db', JSON.stringify(db));
+    await window.saveToServer(db);
+}
 
-    // 2. Отправляем на наш Бэкенд в Докере
+// 3. Тестовый звонок
+window.testBackendConnection = async function() {
+    console.log("Проверяем связь с бэкендом...");
     try {
-        const response = await fetch('http://localhost:3001/api/save', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(db) // Отправляем весь твой объект db
-        });
-
+        const response = await fetch('/api/test'); // ОТНОСИТЕЛЬНЫЙ ПУТЬ
+        const data = await response.json();
         if (response.ok) {
-            console.log("✅ Данные успешно синхронизированы с PostgreSQL");
-        } else {
-            console.error("⚠️ Сервер принял запрос, но ответил ошибкой");
+            alert(`Бэкенд на связи! Ответ: ${data.message} 🚀`);
         }
     } catch (error) {
-        // Если докер выключен или нет сети, ты увидишь это в консоли
-        console.error("❌ Не удалось связаться с Бэкендом:", error);
+        console.error('Ошибка связи:', error);
+        alert('Бэкенд НЕ отвечает. Проверь Docker и Nginx!');
     }
-}
-async function loadDBFromServer() {
-    try {
-        const response = await fetch('http://localhost:3001/api/load');
-        if (response.ok) {
-            const remoteDb = await response.json();
-            if (remoteDb) {
-                db = remoteDb;
-                console.log("📦 База данных успешно загружена из PostgreSQL");
-                return true;
-            }
-        }
-    } catch (error) {
-        console.warn("⚠️ Не удалось загрузить данные с сервера, использую локальную копию");
-    }
-    return false;
-}
+};
+
+// Вспомогательные функции расчетов
 function cleanStr(s) { return s ? String(s).trim() : ""; }
 
-// Расчет баллов
 function calcScore(att, criteria) {
     let st = att.status || (att.absent ? "Н" : "");
     if (st === "Н" || st === "Б" || st === "К") return 0;
@@ -177,101 +167,4 @@ function hasParticipated(s, labNum) {
     if (!s.labs || !s.labs[labNum]) return false;
     return s.labs[labNum].attempts.some(a => Object.keys(a.levels).length > 0 || a.legacy_score || a.absent || a.status);
 }
-
-// Функция отправки данных на сервер
-window.saveToServer = async function(data) {
-    // Эта строчка сама возьмет IP/домен, через который ты открыл сайт
-    const serverIp = window.location.hostname; 
-    const url = `http://${serverIp}:3001/api/save`;
-
-    console.log("Отправляю данные на:", url);
-
-    try {
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
-        });
-
-        if (response.ok) {
-            alert('✅ Данные успешно синхронизированы!');
-        } else {
-            alert('❌ Ошибка сервера: ' + response.status);
-        }
-    } catch (error) {
-        console.error('Ошибка:', error);
-        alert('❌ Не удалось достучаться до бэкенда по адресу ' + url);
-    }
-}
-
-// 1. Исправленный тестовый звонок (на порт 3001)
-window.testBackendConnection = async function() {
-    console.log("Проверяем связь с бэкендом на порту 3001...");
-    try {
-        // Указываем полный путь к бэкенду
-        const response = await fetch('http://localhost:3001/api/test'); 
-        const data = await response.json();
-        
-        if (response.ok) {
-            alert(`Бэкенд на связи! Ответ: ${data.message} 🚀`);
-        }
-    } catch (error) {
-        console.error('Ошибка связи:', error);
-        alert('Бэкенд на порту 3001 НЕ отвечает. Проверь Docker!');
-    }
-};
-
-// 2. Исправленное сохранение (на порт 3001)
-window.saveToServer = async function(data) {
-    console.log("Отправка данных на http://localhost:3001/api/save...");
-    try {
-        const response = await fetch('http://localhost:3001/api/save', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
-        });
-
-        if (response.ok) {
-            alert('✅ Синхронизировано с PostgreSQL и файлом!');
-        } else {
-            throw new Error(`Ошибка сервера: ${response.status}`);
-        }
-    } catch (error) {
-        console.error('Ошибка сохранения:', error);
-        alert('❌ Ошибка: Бэкенд не принял данные. Проверь консоль Докера.');
-    }
-};
-
-// 3. ЧИСТКА: Найди и УДАЛИ старый кусок кода (примерно на 209 строке),
-// который содержит слово appData. Он больше не нужен!// 3. ЗАПУСК ПРИ ЗАГРУЗКЕ СТРАНИЦЫ
-window.addEventListener('DOMContentLoaded', async () => {
-    // Сначала оживляем кнопку "Сохранить"
-    const saveBtn = document.getElementById('saveBtn');
-    if (saveBtn) {
-        saveBtn.onclick = () => {
-            console.log("Кнопка 'Сохранить на сервер' нажата. Отправляю переменную db...");
-            
-            // Проверяем существование переменной db
-            if (typeof db !== 'undefined' && db !== null) {
-                window.saveToServer(db); 
-            } else {
-                alert("Ошибка: Переменная 'db' не инициализирована.");
-            }
-        };
-    }
-    // Затем грузим данные с сервера для отображения
-    const isLoaded = await loadDBFromServer();
-    
-    if (isLoaded) {
-        console.log("🚀 Данные получены. Обновляю интерфейс...");
-        renderLabTabs(); 
-        renderLabTable(); 
-        renderCharts(); 
-        console.log("✨ Интерфейс синхронизирован!");
-    } else {
-        console.log("🏠 Работаем на локальных данных");
-        renderLabTabs();
-        renderLabTable();
-        renderCharts();
-    }
-});
+window.shouldShowInLabAttempt = shouldShowInLabAttempt;

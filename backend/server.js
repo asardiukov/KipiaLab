@@ -59,18 +59,38 @@ app.post('/api/save', async (req, res) => {
     }
 });
 
-// ЗАГРУЗКА (При старте страницы)
 app.get('/api/load', async (req, res) => {
     try {
         const result = await pool.query('SELECT data FROM app_state WHERE id = 1');
+        
         if (result.rows.length > 0) {
-            res.json(result.rows[0].data);
+            let appData = result.rows[0].data || {}; // Если пусто, делаем пустой объект
+            
+            // Защита от отсутствующего массива
+            let studentsArray = appData.students || (appData.groups && appData.groups[0] && appData.groups[0].students) || appData;
+            
+            if (Array.isArray(studentsArray)) {
+                studentsArray.sort((a, b) => {
+                    const scoreA = parseFloat(a.averageScore || a.avg || a.score) || 0;
+                    const scoreB = parseFloat(b.averageScore || b.avg || b.score) || 0;
+                    return scoreB - scoreA;
+                });
+                appData.sortedStudents = studentsArray;
+            } else {
+                // Спасательный круг: если массива нет, отдаем хотя бы пустой массив
+                appData.sortedStudents = []; 
+                console.log("⚠️ Массив студентов не найден в базе, возвращаю пустой список");
+            }
+
+            res.json(appData);
         } else {
-            res.status(404).json({ message: "База в PostgreSQL пока пуста" });
+            // Если в таблице вообще нет ни одной записи
+            res.json({ students: {}, sortedStudents: [] }); 
         }
     } catch (err) {
-        console.error("Ошибка загрузки:", err);
-        res.status(500).json({ error: "Ошибка загрузки с сервера" });
+        // ТЕПЕРЬ ОШИБКА ТОЧНО БУДЕТ В ЛОГАХ
+        console.error("🔥 КРИТИЧЕСКАЯ ОШИБКА В /api/load:", err);
+        res.status(500).json({ error: "Внутренняя ошибка сервера", details: err.message });
     }
 });
 

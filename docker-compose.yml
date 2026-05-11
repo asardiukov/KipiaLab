@@ -11,6 +11,7 @@ services:
       # Пробрасываем твой код прямо в веб-сервер.
       # Теперь при изменении HTML/JS не нужно перезапускать Докер!
       - ./frontend:/usr/share/nginx/html
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf
     restart: always
 
   # 2. Твой новый Бэкенд (Node.js)
