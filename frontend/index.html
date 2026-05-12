@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>КИПиА: Лабораторные работы</title>
+    <title>АП:ЛПР</title>
     <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -12,7 +12,7 @@
 <body>
 
 <div class="sidebar">
-    <div class="sidebar-header">КИПиА: Лабораторные работы</div>
+    <div class="sidebar-header">Алабуга Политех: Лабораторные работы</div>
     <ul class="nav-list">
         <div class="nav-category">База данных</div>
         <li class="nav-item active" onclick="navTo('dashboard')" id="nav-dashboard">🏠 Главная БД (Активные)</li>
@@ -20,11 +20,16 @@
         <li class="nav-item" onclick="navTo('import')" id="nav-import">📥 Загрузка списков</li>
         <li class="nav-item" onclick="navTo('reports')" id="nav-reports">📊 Отчёты и Динамика</li>
         <li class="nav-item" onclick="navTo('settings')" id="nav-settings">⚙️ Настройки и Шаблоны</li>
-   
+               
         <div class="nav-category">Проведение ЛПЗ</div>
         <script>
             for(let i=1; i<=10; i++) document.write(`<li class="nav-item" onclick="navTo('lab', ${i})" id="nav-lab-${i}">🧪 ЛПР №${i}</li>`);
         </script>
+      
+        <li id="logoutBtn" class="nav-item">
+        <span>🚪 Выйти</span>
+        <span id="currentRoomDisplay"></span>
+        </li>
     </ul>
 </div>
 
@@ -43,6 +48,9 @@
                 <select id="dashGroupFilter" onchange="renderDashboard()"><option value="all">Все группы</option></select>
                 <input type="text" id="dashSearch" placeholder="Поиск по ФИО..." oninput="renderDashboard()" style="width: 250px;">
             </div>
+            <button class="btn btn-primary" onclick="window.exportBulkTextReports()">
+            Скачать текстовый отчет (всех)
+            </button>
             <table>
                 <thead><tr><th>ФИО</th><th>Группа</th><th>Средний балл</th><th>Действия</th></tr></thead>
                 <tbody id="dashTbody"></tbody>

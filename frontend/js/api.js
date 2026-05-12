@@ -2,47 +2,62 @@
 import { state, updateDb } from './state.js';
 import { config } from './config.js';
 
-export async function loadDBFromServer() {
-    try {
-        const response = await fetch(`${config.API_URL}/load`);
-        if (response.ok) {
-            const remoteDb = await response.json();
-            if (remoteDb && Object.keys(remoteDb).length > 0) {
-                // Вызов updateDb сам обновит state, window.db и крикнет 'db-ready'
-                updateDb(remoteDb); 
-                
-                state.isDataLoadedFromServer = true; 
-                window.isDataLoadedFromServer = true; // Мост для старого кода
-                
-                console.log("📦 База данных успешно загружена из PostgreSQL (через api.js)");
-                return true;
-            }
-        } else {
-            console.error(`❌ Сервер ответил ошибкой при загрузке: ${response.status}`);
-        }
-    } catch (error) {
-        console.warn("⚠️ Не удалось достучаться до сервера", error);
-    }
-    return false;
-}
+// js/api.js
 
-// Экспортируем функцию сохранения (забираем её из data.js)
-export async function saveToServer(data) {
-    if (!state.isDataLoadedFromServer) {
-        console.warn("⚠️ Блокировка сохранения: данные не загружены с сервера!");
-        return { status: "blocked" };
-    }
+// НОВАЯ ФУНКЦИЯ: Авторизация комнаты
+export async function authRoom(roomName, password) {
     try {
-        console.log("Отправляем данные на сервер...");
-        const res = await fetch(`${config.API_URL}/save`, { 
+        const res = await fetch('/api/auth', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
+            body: JSON.stringify({ roomName, password })
         });
-        if (!res.ok) throw new Error(`Ошибка HTTP: ${res.status}`);
-        return await res.json();
-    } catch (err) {
-        console.error("❌ Ошибка при сохранении:", err);
-        throw err; 
+        const data = await res.json();
+        
+        if (res.ok) {
+            return true; // Успех!
+        } else {
+            alert(data.error || "Ошибка входа");
+            return false;
+        }
+    } catch (e) {
+        console.error("Ошибка авторизации:", e);
+        alert("Нет связи с сервером. Проверьте сеть.");
+        return false;
+    }
+}
+
+// ОБНОВЛЕННАЯ ФУНКЦИЯ: Загрузка с учетом комнаты
+export async function loadDBFromServer(roomName) {
+    try {
+        // Передаем параметр ?room=...
+        const response = await fetch(`/api/load?room=${encodeURIComponent(roomName)}`);
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        return await response.json();
+    } catch (e) {
+        console.error("❌ Ошибка загрузки базы:", e);
+        return null;
+    }
+}
+
+// ОБНОВЛЕННАЯ ФУНКЦИЯ: Сохранение с учетом комнаты
+export async function saveToServer(data) {
+    // Берем текущую комнату из памяти браузера
+    const roomName = localStorage.getItem('kiplab_room');
+    if (!roomName) {
+        console.error("Попытка сохранить данные без авторизации!");
+        return false;
+    }
+
+    try {
+        const response = await fetch(`/api/save`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ roomName, data }) // Отправляем и комнату, и данные
+        });
+        return response.ok;
+    } catch (e) {
+        console.error("❌ Ошибка сохранения:", e);
+        return false;
     }
 }

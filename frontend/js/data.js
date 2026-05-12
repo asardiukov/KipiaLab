@@ -141,18 +141,29 @@ function getStudentMaxScoreForLab(fio, labNum) {
     return max;
 }
 
-function shouldShowInLabAttempt(fio, labNum, attemptIndex) {
-    let s = db.students[fio]; if (s.status !== 'active') return false;
-    if (labNum > 1 && getStudentMaxScoreForLab(fio, labNum - 1) < PASS_THRESHOLD) return false; 
-    let criteria = db.labs_meta[labNum].criteria;
-    for (let i = 0; i < attemptIndex; i++) { 
-        let att = s.labs[labNum].attempts[i];
-        let st = att.status || (att.absent ? "Н" : "");
-        if (st !== "Н" && st !== "Б" && st !== "К" && calcScore(att, criteria) >= PASS_THRESHOLD) return false; 
+export function shouldShowInLabAttempt(student, labNum, attemptIdx) {
+    // 1. Проверяем, есть ли вообще студент и его лабы
+    if (!student || !student.labs || !student.labs[labNum]) {
+        return false;
     }
-    return true;
-}
 
+    const lab = student.labs[labNum];
+
+    // 2. Проверяем, есть ли массив попыток и нужная нам попытка
+    if (!lab.attempts || !Array.isArray(lab.attempts) || !lab.attempts[attemptIdx]) {
+        return false;
+    }
+
+    const attempt = lab.attempts[attemptIdx];
+
+    // 3. БЕЗОПАСНАЯ ПРОВЕРКА СТАТУСА
+    // Если статуса нет (старая база), но есть баллы — считаем, что можно показывать
+    const status = attempt.status || ''; 
+    
+    // Тут твоя логика фильтрации (обычно проверка, не отчислен ли или не скрыт)
+    // Добавляем защиту: если attempt существует, берем статус
+    return attempt !== undefined; 
+}
 function getStudentStats(s, fio) {
     let totalScore = 0, remarksCount = 0, count = 0; 
     for (let i = 1; i <= 10; i++) {

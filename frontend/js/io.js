@@ -30,91 +30,116 @@ function downloadCSV(csv, name) {
     link.download = name; document.body.appendChild(link); link.click(); document.body.removeChild(link);
 }
 
-
-function printStudentReport() {
-    if(!gradingFio) return;
-    let s = db.students[gradingFio];
-    let stats = getStudentStats(s, gradingFio);
-
-    let rowsHtml = '';
-    for(let i=1; i<=10; i++) {
-        let lab = s.labs[i];
-        let meta = db.labs_meta[i];
-        let maxScore = getStudentMaxScoreForLab(gradingFio, i);
-        
-        let attHtml = '';
-        for(let a=0; a<4; a++) {
-            let att = lab.attempts[a];
-            let isAssessed = Object.keys(att.levels).length > 0 || att.legacy_score || att.absent || att.status;
-            let st = att.status || (att.absent ? "Н" : "");
-            let val = "—", color = "#94a3b8"; 
-            if(isAssessed) {
-                if(st === 'Н') { val = "Н"; color = "#ef4444"; }
-                else if(st === 'Б') { val = "Б"; color = "#f59e0b"; }
-                else if(st === 'К') { val = "К"; color = "#3b82f6"; }
-                else {
-                    let sc = calcScore(att, meta.criteria);
-                    val = sc; color = sc >= 70 ? "#22c55e" : "#ef4444";
-                }
-            }
-            attHtml += `<td style="text-align:center; color:${color}; font-weight:bold; font-size:1.1em;">${val}</td>`;
-        }
-
-        let rems = lab.remarks.length > 0 
-            ? `<div style="background:#fef3c7; border:1px solid #fde047; padding:5px 8px; border-radius:4px; color:#b45309; font-size:0.9em; margin:2px 0;">${lab.remarks.join('<br>')}</div>` 
-            : '';
-
-        rowsHtml += `
-            <tr>
-                <td style="text-align:center; font-weight:bold; color:#475569;">ЛПР ${i}</td>
-                ${attHtml}
-                <td style="text-align:center; font-weight:bold; font-size:1.2em; background:#f8fafc;">${maxScore > 0 ? maxScore : '—'}</td>
-                <td>${rems}</td>
-            </tr>
-        `;
+window.printStudentReport = function(passedFio) {
+    // 1. Ищем ФИО. Если аргумент - строка, берем его. 
+    // Если нет (например, клик без аргументов) - берем глобальную переменную gradingFio
+    let rawFio = (typeof passedFio === 'string') ? passedFio : window.gradingFio;
+    
+    // Подстраховка, если переменная не прокинута в window
+    if (!rawFio && typeof gradingFio !== 'undefined') {
+        rawFio = gradingFio;
     }
 
-    let html = `
-        <html><head><title>Отчет - ${gradingFio}</title>
-        <style>
-            body { font-family: "Segoe UI", Arial, sans-serif; padding: 30px; color: #1e293b; background: white; }
-            h1 { text-align: center; border-bottom: 2px solid #3b82f6; padding-bottom: 10px; margin-bottom: 25px; color: #0f172a; text-transform: uppercase; font-size: 1.5em; letter-spacing: 1px;}
-            .stats-container { display: flex; justify-content: space-between; background: #f8fafc; padding: 20px; border-radius: 8px; margin-bottom: 25px; border: 1px solid #e2e8f0; }
-            .stat-box { text-align: center; }
-            .stat-val { font-size: 1.8em; font-weight: bold; color: #3b82f6; margin-top: 5px; }
-            .stat-label { font-size: 0.85em; color: #64748b; text-transform: uppercase; font-weight: bold; letter-spacing: 1px; }
-            table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; }
-            th, td { border: 1px solid #cbd5e1; padding: 10px 8px; text-align: left; vertical-align: middle; }
-            th { background: #f1f5f9; font-weight: bold; text-align: center; color: #475569; }
-            tbody tr:nth-child(even) { background-color: #f8fafc; }
-            @media print { 
-                body { padding: 0; } 
-                .stats-container { border: 2px solid black; background: white; }
-                th { background: #e2e8f0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-            }
-        </style>
-        </head><body>
-            <h1>Отчёт по успеваемости студента</h1>
-            <div class="stats-container">
-                <div class="stat-box" style="text-align: left;"><div class="stat-label">Студент</div><div class="stat-val" style="color:#0f172a;">${gradingFio}</div></div>
-                <div class="stat-box"><div class="stat-label">Группа</div><div class="stat-val">${s.group}</div></div>
-                <div class="stat-box"><div class="stat-label">Средний балл</div><div class="stat-val">${stats.avgScore}</div></div>
-                <div class="stat-box"><div class="stat-label">Всего замечаний</div><div class="stat-val" style="color:#ef4444;">${stats.totalRemarks}</div></div>
-            </div>
-            <table>
-                <thead>
-                    <tr><th rowspan="2" style="width: 10%;">Работа</th><th colspan="4">Попытки (Балл)</th><th rowspan="2" style="width: 10%;">Лучший<br>Итог</th><th rowspan="2" style="width: 40%;">Замечания</th></tr>
-                    <tr><th style="width: 10%;">Основа</th><th style="width: 10%;">Пересдача</th><th style="width: 10%;">Комиссия</th><th style="width: 10%;">Хар-ка</th></tr>
-                </thead>
-                <tbody>${rowsHtml}</tbody>
-            </table>
-        </body></html>
-    `;
+    // Если всё равно пусто
+    if (!rawFio) {
+        alert("Ошибка: Непонятно, для кого делать отчет. ФИО не найдено!");
+        return;
+    }
 
-    let printWin = window.open('', '', 'width=1000,height=800');
-    printWin.document.open(); printWin.document.write(html); printWin.document.close();
-    printWin.focus(); setTimeout(() => { printWin.print(); }, 500);
-}
+    const fio = rawFio.trim(); 
+    const reportText = getStudentTextData(fio);
+
+    if (reportText.includes("не найден")) {
+        alert("Ошибка: Студент '" + fio + "' не найден в базе!");
+        return;
+    }
+
+    // --- СОЗДАЕМ ВСПЛЫВАЮЩЕЕ ОКНО (OVERLAY) ---
+    const overlay = document.createElement('div');
+    overlay.style.position = 'fixed';
+    overlay.style.top = '0';
+    overlay.style.left = '0';
+    overlay.style.width = '100vw';
+    overlay.style.height = '100vh';
+    overlay.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+    overlay.style.zIndex = '9999';
+    overlay.style.display = 'flex';
+    overlay.style.alignItems = 'center';
+    overlay.style.justifyContent = 'center';
+
+    const modal = document.createElement('div');
+    modal.style.backgroundColor = 'var(--bg-color, #2b2b2b)';
+    modal.style.color = 'var(--text-color, #eee)';
+    modal.style.padding = '20px';
+    modal.style.borderRadius = '8px';
+    modal.style.width = '90%';
+    modal.style.maxWidth = '600px';
+    modal.style.boxShadow = '0 10px 25px rgba(0,0,0,0.5)';
+    modal.style.display = 'flex';
+    modal.style.flexDirection = 'column';
+    modal.style.gap = '15px';
+
+    const title = document.createElement('h3');
+    title.innerText = 'Отчет: ' + fio;
+    title.style.margin = '0';
+    title.style.borderBottom = '1px solid #555';
+    title.style.paddingBottom = '10px';
+
+    const textarea = document.createElement('textarea');
+    textarea.value = reportText;
+    textarea.readOnly = true;
+    textarea.style.width = '100%';
+    textarea.style.height = '300px';
+    textarea.style.fontFamily = 'monospace';
+    textarea.style.backgroundColor = '#1e1e1e';
+    textarea.style.color = '#00ffcc';
+    textarea.style.border = '1px solid #444';
+    textarea.style.borderRadius = '4px';
+    textarea.style.padding = '10px';
+    textarea.style.resize = 'vertical';
+
+    const btnPanel = document.createElement('div');
+    btnPanel.style.display = 'flex';
+    btnPanel.style.justifyContent = 'flex-end';
+    btnPanel.style.gap = '10px';
+
+    const copyBtn = document.createElement('button');
+    copyBtn.innerText = '📋 Скопировать текст';
+    copyBtn.className = 'btn btn-primary'; 
+    copyBtn.style.padding = '8px 16px';
+    copyBtn.onclick = function() {
+        navigator.clipboard.writeText(reportText).then(() => {
+            copyBtn.innerText = '✅ Скопировано!';
+            copyBtn.style.backgroundColor = 'var(--success, #28a745)';
+            setTimeout(() => {
+                copyBtn.innerText = '📋 Скопировать текст';
+                copyBtn.style.backgroundColor = '';
+            }, 2000);
+        });
+    };
+
+    const closeBtn = document.createElement('button');
+    closeBtn.innerText = 'Закрыть';
+    closeBtn.className = 'btn btn-outline';
+    closeBtn.style.padding = '8px 16px';
+    closeBtn.style.color = '#fff'; // Делаем текст белым
+    closeBtn.style.borderColor = '#888'; // Делаем рамку светло-серой
+    closeBtn.onmouseover = () => closeBtn.style.backgroundColor = '#444'; // Эффект при наведении
+    closeBtn.onmouseout = () => closeBtn.style.backgroundColor = 'transparent';
+    closeBtn.onclick = function() {
+        document.body.removeChild(overlay);
+    };
+
+    btnPanel.appendChild(copyBtn);
+    btnPanel.appendChild(closeBtn);
+    
+    modal.appendChild(title);
+    modal.appendChild(textarea);
+    modal.appendChild(btnPanel);
+    
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+};
 
 // --- НАСТРОЙКИ, ИМПОРТ, ЭКСПОРТ ---
 function importTemplate(e, type) {
@@ -125,6 +150,8 @@ function importTemplate(e, type) {
     }; reader.readAsDataURL(e.target.files[0]);
 }
 function updateTemplateStatus() {
+    const db = window.db; // <--- ДОБАВЬ ЭТУ СТРОКУ
+    if (!db) return;      // <--- Защита
     if(document.getElementById('statusVedomost')) { document.getElementById('statusVedomost').innerText = db.tpl_vedomost ? "✅ Загружен" : "❌ Нет шаблона"; }
     if(document.getElementById('statusProtocol')) { document.getElementById('statusProtocol').innerText = db.tpl_protocol ? "✅ Загружен" : "❌ Нет шаблона"; }
 }
@@ -438,18 +465,29 @@ function showCriteriaComparison(fio, importStudent) {
             else if (lvl === 0) { importPoints = 0; importDisplay = "0"; }
             else { importDisplay = "— (нет в импорте)"; importPoints = null; }
         }
-        let isMatch = false;
-        if (currentPoints !== null && importPoints !== null) isMatch = (currentPoints === importPoints);
-        else if (currentDisplay === importDisplay) isMatch = true;
-        else isMatch = false;
+        let isMatch = (currentDisplay === importDisplay && currentPoints === importPoints);
         if (isMatch) matchCount++;
-        let rowClass = isMatch ? 'match-row' : 'mismatch-row';
-        tbody.innerHTML += `<tr class="${rowClass}"><td>${crit.name}</td><td style="text-align:center;">${max}</td><td style="text-align:center;"><strong>${currentDisplay}</strong></td><td style="text-align:center;"><strong>${importDisplay}</strong></td><td style="text-align:center;">${isMatch ? '✓' : '✗'}</td></tr>`;
+        
+        let tr = document.createElement('tr');
+        if (!isMatch) tr.classList.add('mismatch-row');
+        else tr.classList.add('match-row');
+        
+        tr.innerHTML = `<td>${crit.name}</td><td>${currentDisplay}</td><td>${importDisplay}</td><td>${isMatch ? '✓' : '✗'}</td>`;
+        tbody.appendChild(tr);
     }
+    
+    hasExtraCriteria = false;
     for (let impCritName in importLevels) {
-        if (!criteria.some(c => c.name === impCritName)) { hasExtraCriteria = true; break; }
+        if (!criteria.some(c => c.name === impCritName)) { 
+            hasExtraCriteria = true; 
+            break; 
+        }
     }
-    if (hasExtraCriteria) warningDiv.innerHTML = '<strong>Внимание:</strong> Импортируемый файл содержит критерии, отсутствующие в текущей ЛПР. Они будут проигнорированы.';
+    
+    if (hasExtraCriteria) {
+        warningDiv.innerHTML = '<strong>Внимание:</strong> Импортируемый файл содержит критерии, отсутствующие в текущей ЛПР. Они будут проигнорированы.';
+    }
+    
     document.getElementById('compareModalSummary').innerHTML = `Совпало критериев: ${matchCount} из ${totalCriteria}`;
     document.getElementById('criteriaCompareModal').style.display = 'flex';
 }
@@ -731,6 +769,119 @@ function openOrderModal() {
     document.getElementById('orderDate').value = today;
     updateGroupDateInputs();
 }
+/**
+ * Генерирует чистый текст отчета для одного студента с ровными столбиками
+ */
+function getStudentTextData(fio) {
+    const database = window.db;
+    const s = database.students[fio];
+    if (!s) return `Студент ${fio} не найден.\n`;
+
+    const stats = window.getStudentStats(s, fio);
+    const config = window.config;
+
+    let text = `=================================================\n`;
+    text += `ОТЧЕТ ПО СТУДЕНТУ: ${fio}\n`;
+    text += `Группа: ${s.group || '—'}\n`; 
+    text += `=================================================\n\n`;
+
+    text += `ОБЩАЯ СТАТИСТИКА:\n`;
+    text += `- Средний балл: ${stats.avgScore}\n`;
+    text += `- Пройдено ЛПР: ${stats.submitted} из 10\n`;
+    text += `- Замечания: ${stats.totalRemarks}\n\n`;
+
+    text += `ДЕТАЛИЗАЦИЯ ЛПР:\n`;
+    text += `№ ЛПР`.padEnd(10, ' ') + `| Балл`.padEnd(10, ' ') + `| Статус\n`;
+    text += `-------------------------------------------------\n`;
+
+    // Выводим результаты ровными колонками с проверкой на "Не начато"
+    for (let i = 1; i <= 10; i++) {
+        let scoreStr = "—";
+        let labStatus = "Не начато";
+
+        // Проверяем, есть ли вообще у студента записи по этой ЛПР и есть ли попытки сдачи
+        if (s.labs && s.labs[i] && s.labs[i].attempts && s.labs[i].attempts.length > 0) {
+            const score = window.getStudentMaxScoreForLab(fio, i);
+            scoreStr = score.toString();
+            labStatus = score >= (config.PASS_THRESHOLD || 70) ? "Сдано" : "Не сдано/Долг";
+        }
+        
+        const col1 = `ЛПР ${i}`.padEnd(9, ' ');
+        const col2 = `| ${scoreStr}`.padEnd(9, ' ');
+        const col3 = `| ${labStatus}`;
+        
+        text += `${col1} ${col2} ${col3}\n`;
+    }
+
+    // Собираем все замечания в один плоский массив
+    let allRemarks = [];
+    if (s.labs) {
+        for (let i = 1; i <= 10; i++) {
+            if (s.labs[i] && s.labs[i].remarks && s.labs[i].remarks.length > 0) {
+                allRemarks.push(...s.labs[i].remarks);
+            }
+        }
+    }
+
+    // Выводим замечания с визуальным выделением
+    text += `\n-------------------------------------------------\n`;
+    text += `ЗАМЕЧАНИЯ:\n`;
+    if (allRemarks.length > 0) {
+        allRemarks.forEach(remark => {
+            text += `• ${remark}\n`; 
+        });
+    } else {
+        text += `Нет замечаний.\n`;
+    }
+    text += `-------------------------------------------------\n`;
+
+    text += `\n\n`;
+    return text;
+}; 
+
+/**
+ * Массовый экспорт отчетов по отфильтрованным студентам
+ */
+window.exportBulkTextReports = function() {
+    const database = window.db;
+    const gFilter = document.getElementById('dashGroupFilter')?.value || 'all';
+    const search = document.getElementById('dashSearch')?.value.toLowerCase() || '';
+
+    let fullReport = `СВОДНЫЙ ОТЧЕТ ПО ГРУППЕ: ${gFilter.toUpperCase()}\n`;
+    fullReport += `Дата формирования: ${new Date().toLocaleString()}\n`;
+    fullReport += `------------------------------------------\n\n`;
+
+    let count = 0;
+    // Берем студентов, которые сейчас видны на дашборде (с учетом фильтров)
+    for (let fio in database.students) {
+        const s = database.students[fio];
+        const currentStatus = s.status || 'active';
+
+        if (currentStatus !== 'active' || 
+           (gFilter !== 'all' && s.group !== gFilter) || 
+           (search && !fio.toLowerCase().includes(search))) {
+            continue;
+        }
+
+        fullReport += getStudentTextData(fio);
+        count++;
+    }
+
+    if (count === 0) {
+        alert("Нет студентов для экспорта с текущими фильтрами.");
+        return;
+    }
+
+    // Скачиваем как .txt файл
+    const blob = new Blob([fullReport], { type: 'text/plain;charset=utf-8' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `Отчет_Группа_${gFilter}_${new Date().toLocaleDateString()}.txt`;
+    link.click();
+    
+    console.log(`✅ Экспортировано отчетов: ${count}`);
+};
+
 
 function printOrder() {
     let type = document.getElementById('orderType').value;

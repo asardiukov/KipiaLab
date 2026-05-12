@@ -37,19 +37,72 @@ export function getStudentMaxScoreForLab(fio, labNum) {
     return max;
 }
 
-export function getStudentStats(s, fio) {
-    let totalScore = 0, remarksCount = 0, count = 0; 
+export function getStudentStats(student, fio) {
+    if (!student) return { avgScore: 0, submitted: 0, totalRemarks: 0 };
+    if (!student.labs) student.labs = {};
+
+    let totalScore = 0;
+    let submittedCount = 0;
+    let remarksCount = 0;
+
     for (let i = 1; i <= 10; i++) {
-        let hasAttempt = s.labs[i].attempts.some(a => Object.keys(a.levels).length > 0 || a.legacy_score || a.absent || a.status);
-        if (hasAttempt) { totalScore += getStudentMaxScoreForLab(fio, i); count++; }
-        remarksCount += s.labs[i].remarks.length;
+        const lab = student.labs[i];
+        let maxScore = 0;
+
+        if (lab) {
+            // Ищем попытки сдачи
+            if (lab.attempts && Array.isArray(lab.attempts) && lab.attempts.length > 0) {
+                // Магия: собираем все баллы, проверяем legacy_score и пустые строки ""
+                const scores = lab.attempts.map(a => {
+                    // Берем score, если нет - берем legacy_score. Если пусто - "0"
+                    const val = a.score !== undefined ? a.score : (a.legacy_score || "0");
+                    const parsed = parseFloat(val);
+                    return isNaN(parsed) ? 0 : parsed;
+                });
+                
+                // Находим максимальный балл среди всех попыток
+                maxScore = Math.max(...scores, 0); 
+            } 
+            // Страховка на случай старых форматов
+            else if (lab.score !== undefined || lab.legacy_score !== undefined) {
+                maxScore = parseFloat(lab.score || lab.legacy_score) || 0;
+            }
+
+            // Плюсуем балл, если он больше 0 (значит лаба сдана)
+            if (maxScore > 0) {
+                totalScore += maxScore;
+                submittedCount++;
+            }
+
+            // Считаем замечания
+            if (lab.remarks && Array.isArray(lab.remarks)) {
+                remarksCount += lab.remarks.length;
+            }
+        }
     }
-    return { avgScore: count > 0 ? (totalScore / count).toFixed(1) : "—", totalRemarks: remarksCount, submitted: count };
+
+    // Считаем среднее (оставляем 1 знак после запятой)
+    const avgScore = submittedCount > 0 ? (totalScore / submittedCount).toFixed(1) : 0;
+
+    // 🔥 ЗАПИСЫВАЕМ СРЕДНИЙ БАЛЛ ОБРАТНО В СТУДЕНТА ДЛЯ СОРТИРОВКИ!
+    student.averageScore = parseFloat(avgScore);
+
+    return {
+        avgScore: avgScore,
+        submitted: submittedCount,
+        totalRemarks: remarksCount
+    };
 }
 
-export function hasParticipated(s, labNum) {
-    if (!s.labs || !s.labs[labNum]) return false;
-    return s.labs[labNum].attempts.some(a => Object.keys(a.levels).length > 0 || a.legacy_score || a.absent || a.status);
+// Проверяет, сдал ли студент хотя бы одну работу
+export function hasParticipated(student) {
+    if (!student) return false;
+    
+    // Используем нашу новую мощную функцию подсчета
+    const stats = getStudentStats(student); 
+    
+    // Если сдано больше 0 лаб — значит, участвовал
+    return stats.submitted > 0; 
 }
 // js/utils.js
 // ... твои функции ...

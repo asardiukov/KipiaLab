@@ -1,41 +1,53 @@
-// js/main.js
-import { state } from './state.js'; // Важно! Импортируем сам стейт
+import { state } from './state.js';
+import { loadDBFromServer } from './api.js';
+import { updateGroupFilters, renderDashboard } from './components/dashboard.js';
 import { initCharts } from './components/charts.js';
-import { renderDashboard, updateGroupFilters, initDashboardEvents } from './components/dashboard.js';
-import { loadDBFromServer, saveToServer } from './api.js';
+import { showLoginScreen, logout } from './auth.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
     console.log("🚀 Инициализация архитектуры KipLab...");
 
-    // 1. Привязываем события (фильтры, поиск) СРАЗУ. 
-    // Им не нужны данные, чтобы просто "слушать" изменения.
-    initDashboardEvents();
-
-    // 2. Пытаемся стянуть данные
-    const isServerDataLoaded = await loadDBFromServer();
+    // 1. Проверка комнаты
+    const currentRoom = localStorage.getItem('kiplab_room');
     
-    if (isServerDataLoaded) {
+    if (!currentRoom) {
+        console.log("🔒 Доступ закрыт. Ожидание входа пользователя...");
+        showLoginScreen(); 
+        return; 
+    }
+
+    console.log(`🔑 Авторизован в комнате: ${currentRoom}. Загрузка данных...`);
+
+    // 2. Загрузка данных с сервера
+    const dbData = await loadDBFromServer(currentRoom);
+    
+    if (dbData && dbData.students) {
         console.log("💎 Данные из PostgreSQL получены");
         
-        // Синхронизируем: если api.js положил данные в window.db, 
-        // прокидываем их в наш импортированный стейт
-        if (window.db) {
-            state.db = window.db;
-        }
-
-        // 3. Прямой вызов импортированных функций (без window!)
+        window.db = dbData;
+        state.db = dbData;
+        window.isDataLoadedFromServer = true; // Было isServerDataLoaded. Теперь совпадает с data.js!
+        // 3. Первичная отрисовка
         console.log("📊 Запуск первичной отрисовки...");
         updateGroupFilters(); 
         renderDashboard();
-        
-        // Инициализируем графики
         initCharts();
     } else {
         console.warn("⚠️ Работаем в офлайн-режиме или база пуста");
     }
 
-    // 4. Глобальные кнопки (Excel и т.д.)
+    // 4. Кнопка Excel
     document.getElementById('exportExcelBtn')?.addEventListener('click', () => {
         import('./services/excel.js').then(m => m.exportToExcel());
     });
-});
+
+    // 5. Логика выхода
+    const logoutBtn = document.getElementById('logoutBtn');
+    if (logoutBtn) {
+        // Отображаем название комнаты рядом с иконкой выхода
+        const roomDisplay = document.getElementById('currentRoomDisplay');
+        if (roomDisplay) roomDisplay.innerText = currentRoom;
+
+        logoutBtn.addEventListener('click', logout);
+    }
+}); // <-- Скорее всего, эта закрывающая скобка и точка с запятой потерялись

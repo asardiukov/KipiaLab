@@ -22,71 +22,75 @@ export function updateGroupFilters() {
 
 // js/components/dashboard.js
 
+// js/components/dashboard.js
+
 export function renderDashboard() {
     const database = state.db || window.db; 
-    
     if (!database || !database.students) return;
 
     let gFilter = document.getElementById('dashGroupFilter')?.value || 'all';
     let search = document.getElementById('dashSearch')?.value.toLowerCase() || '';
-    let tbody = document.getElementById('dashTbody'); 
-    
-    // Если таблицы физически нет на экране - уходим
-    if (!tbody) {
-        console.warn("⚠️ Элемент dashTbody не найден в HTML!");
-        return;
-    }
-    
+    let tbody = document.getElementById('dashTbody');
+    if (!tbody) return;
+
     tbody.innerHTML = '';
 
-    // ИСПРАВЛЕНИЕ 1: Защита от пустого массива
-    let source;
-    if (database.sortedStudents && database.sortedStudents.length > 0) {
-        source = database.sortedStudents;
-    } else {
-        source = Object.entries(database.students).map(([fio, info]) => ({ fio, ...info }));
-    }
-        // 👇 ДОБАВЬ ВОТ ЭТИ 3 СТРОКИ 👇
-    console.log("🕵️ ДЕТЕКТИВ: Всего студентов в базе:", Object.keys(database.students).length);
-    console.log("🕵️ ДЕТЕКТИВ: Готовы к отрисовке (source):", source.length);
-    console.log("🕵️ ДЕТЕКТИВ: Текущие фильтры -> Группа:", gFilter, "| Поиск:", search);
+    // 1. Превращаем объект в массив и СРАЗУ считаем статы для каждого студента
+    // Это нужно, чтобы у нас были баллы для сортировки
+    let studentsList = Object.entries(database.students).map(([fio, info]) => {
+        const stats = getStudentStats(info, fio);
+        return { fio, ...info, stats };
+    });
+
+    // 2. ЖЕСТКАЯ СОРТИРОВКА ПО СРЕДНЕМУ БАЛЛУ (от высшего к низшему)
+    studentsList.sort((a, b) => {
+        const scoreA = a.stats.avgScore === "—" ? -1 : parseFloat(a.stats.avgScore);
+        const scoreB = b.stats.avgScore === "—" ? -1 : parseFloat(b.stats.avgScore);
+        
+        // Сначала по баллу
+        if (scoreB !== scoreA) {
+            return scoreB - scoreA;
+        }
+        // Если баллы равны — по алфавиту
+        return a.fio.localeCompare(b.fio);
+    });
 
     let renderedCount = 0;
 
-    source.forEach(s => {
-        const fio = s.fio || s.name;
+    // 3. Отрисовываем уже отсортированный список
+    studentsList.forEach(s => {
+        const currentStatus = s.status || 'active';
         
-        // ИСПРАВЛЕНИЕ 2: Если статуса нет, считаем его 'active' по умолчанию
-        const currentStatus = s.status || 'active'; 
-
         // Фильтрация
         if (currentStatus !== 'active' || 
            (gFilter !== 'all' && s.group !== gFilter) || 
-           (search && !fio.toLowerCase().includes(search))) {
-            return; // Пропускаем
+           (search && !s.fio.toLowerCase().includes(search))) {
+            return;
         }
 
-        renderedCount++; // Увеличиваем счетчик
-
-        let stats = getStudentStats(s, fio);
-        let scoreVal = parseFloat(stats.avgScore);
+        renderedCount++;
+        let scoreVal = parseFloat(s.stats.avgScore);
+        
+        // Используем порог из конфига для цвета
         let color = (!isNaN(scoreVal) && scoreVal < config.PASS_THRESHOLD) ? 'var(--danger)' : 'var(--primary)';
 
         tbody.innerHTML += `
-            <tr class="clickable-row" onclick="window.openGlobalCard('${fio}')">
-                <td>${fio}</td>
+            <tr class="clickable-row" onclick="window.openGlobalCard('${s.fio}')">
+                <td>${s.fio}</td>
                 <td>${s.group || '—'}</td>
-                <td style="font-weight:bold; color:${color};">${stats.avgScore}</td>
+                <td style="font-weight:bold; color:${color};">${s.stats.avgScore}</td>
                 <td>
-                    <button class="btn btn-outline" style="padding:4px 8px; font-size:12px;" onclick="event.stopPropagation(); window.openGlobalCard('${fio}')">
+                    <button class="btn btn-outline" style="padding:4px 8px; font-size:12px;" onclick="event.stopPropagation(); window.openGlobalCard('${s.fio}')">
                         Карточка студента
                     </button>
                 </td>
             </tr>`;
     });
 
-    console.log(`✅ Отрисовано студентов в таблице: ${renderedCount}`);
+    // Обновляем счетчик для отладки
+    console.log(`✅ Отрисовано студентов (отсортировано по баллу): ${renderedCount}`);
 }
+
 export function initDashboardEvents() {
     const groupFilter = document.getElementById('dashGroupFilter');
     const searchInput = document.getElementById('dashSearch');
