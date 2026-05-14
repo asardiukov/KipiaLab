@@ -33,35 +33,25 @@ export function renderDashboard() {
     let tbody = document.getElementById('dashTbody');
     if (!tbody) return;
 
-    tbody.innerHTML = '';
-
-    // 1. Превращаем объект в массив и СРАЗУ считаем статы для каждого студента
-    // Это нужно, чтобы у нас были баллы для сортировки
     let studentsList = Object.entries(database.students).map(([fio, info]) => {
         const stats = getStudentStats(info, fio);
         return { fio, ...info, stats };
     });
 
-    // 2. ЖЕСТКАЯ СОРТИРОВКА ПО СРЕДНЕМУ БАЛЛУ (от высшего к низшему)
     studentsList.sort((a, b) => {
         const scoreA = a.stats.avgScore === "—" ? -1 : parseFloat(a.stats.avgScore);
         const scoreB = b.stats.avgScore === "—" ? -1 : parseFloat(b.stats.avgScore);
-        
-        // Сначала по баллу
-        if (scoreB !== scoreA) {
-            return scoreB - scoreA;
-        }
-        // Если баллы равны — по алфавиту
+        if (scoreB !== scoreA) return scoreB - scoreA;
         return a.fio.localeCompare(b.fio);
     });
 
     let renderedCount = 0;
+    // 1. Создаем пустую текстовую переменную
+    let htmlString = ''; 
 
-    // 3. Отрисовываем уже отсортированный список
     studentsList.forEach(s => {
         const currentStatus = s.status || 'active';
         
-        // Фильтрация
         if (currentStatus !== 'active' || 
            (gFilter !== 'all' && s.group !== gFilter) || 
            (search && !s.fio.toLowerCase().includes(search))) {
@@ -70,11 +60,10 @@ export function renderDashboard() {
 
         renderedCount++;
         let scoreVal = parseFloat(s.stats.avgScore);
-        
-        // Используем порог из конфига для цвета
         let color = (!isNaN(scoreVal) && scoreVal < config.PASS_THRESHOLD) ? 'var(--danger)' : 'var(--primary)';
 
-        tbody.innerHTML += `
+        // 2. Добавляем код студента в ТЕКСТОВУЮ переменную (это мгновенно)
+        htmlString += `
             <tr class="clickable-row" onclick="window.openGlobalCard('${s.fio}')">
                 <td>${s.fio}</td>
                 <td>${s.group || '—'}</td>
@@ -87,8 +76,10 @@ export function renderDashboard() {
             </tr>`;
     });
 
-    // Обновляем счетчик для отладки
-    console.log(`✅ Отрисовано студентов (отсортировано по баллу): ${renderedCount}`);
+    // 3. ОДИН РАЗ отдаем весь собранный код браузеру
+    tbody.innerHTML = htmlString; 
+
+    console.log(`✅ Отрисовано студентов: ${renderedCount}`);
 }
 
 export function initDashboardEvents() {

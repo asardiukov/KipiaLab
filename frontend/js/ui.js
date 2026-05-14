@@ -169,24 +169,62 @@ function saveGrade() {
     renderLabTable();
 }
 
-function openGlobalCard(fio) {
+window.openGlobalCard = function(fio) {
     const db = window.db;
     gradingFio = fio; 
     let s = db.students[fio];
+    
     document.getElementById('modalGlobalFio').innerText = fio;
+    // Заодно починили вывод группы студента в карточке!
+    document.getElementById('modalGlobalGroup').innerText = s.group || '—'; 
+
     let html = '';
     for(let i=1; i<=10; i++) {
         let lab = s.labs[i];
+        
+        // 1. Рисуем 4 инпута для оценок
         let inputsHtml = [0,1,2,3].map(aIdx => {
             let att = lab.attempts[aIdx];
             let val = att.score || att.legacy_score || "";
-            return `<input type="text" id="glab_${i}_${aIdx}" value="${val}" style="width:40px; text-align:center;" onchange="window.saveGlobalCard()">`;
+            return `<input type="text" id="glab_${i}_${aIdx}" value="${val}" placeholder="—" style="width: 100%; text-align:center;" onchange="window.saveGlobalCard()">`;
         }).join('');
-        html += `<div class="lab-row"><div style="width:30px; font-weight:bold;">${i}</div>${inputsHtml}</div>`;
+
+        // 2. Достаем замечания (склеиваем их через запятую, если они есть)
+        let remarks = lab.remarks ? lab.remarks.join(', ') : '';
+
+        // 3. Строим строку на жесткой сетке (Grid), чтобы идеально совпадало с шапкой
+        html += `
+        <div style="display: grid; grid-template-columns: 30px 65px 65px 65px 65px 1fr; gap: 12px; align-items: center; margin-bottom: 8px;">
+            <div style="font-weight:bold; color: var(--text-muted); font-size: 1.1em; padding-left: 5px;">${i}</div>
+            ${inputsHtml}
+            <input type="text" id="grem_${i}" value="${remarks}" placeholder="Введите замечание..." style="width: 100%;" onchange="window.saveGlobalCard()">
+        </div>`;
     }
     document.getElementById('globalLabsContainer').innerHTML = html;
     document.getElementById('globalStudentModal').style.display = 'flex';
-}
+};
+
+window.saveGlobalCard = function() {
+    let s = window.db.students[gradingFio];
+    for(let i=1; i<=10; i++) {
+        // Сохраняем баллы
+        for(let a=0; a<4; a++) {
+            let val = document.getElementById(`glab_${i}_${a}`).value;
+            s.labs[i].attempts[a].score = val;
+        }
+        
+        // Сохраняем замечания
+        let remVal = document.getElementById(`grem_${i}`).value;
+        if (remVal.trim() !== '') {
+            // Разбиваем по запятой и убираем лишние пробелы
+            s.labs[i].remarks = remVal.split(',').map(r => r.trim()).filter(r => r !== '');
+        } else {
+            s.labs[i].remarks = [];
+        }
+    }
+    window.saveDB();
+};
+
 
 function saveGlobalCard() {
     let s = window.db.students[gradingFio];

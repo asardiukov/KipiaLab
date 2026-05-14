@@ -8,22 +8,39 @@ window.saveToServer = async function(data) {
         return { status: "blocked" };
     }
 
+    // 1. Извлекаем название текущей комнаты (оно там сохранено после входа)
+    const currentRoom = localStorage.getItem('kiplab_room');
+
+    if (!currentRoom) {
+        console.error("❌ Ошибка: Название комнаты не найдено в localStorage");
+        return;
+    }
+
     try {
-        console.log("Отправляем данные на сервер...");
+        console.log(`Отправляем данные комнаты [${currentRoom}] на сервер...`);
+        
         const res = await fetch('/api/save', { 
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
+            // 2. Упаковываем данные в "конверт", который требует сервер
+            body: JSON.stringify({ 
+                roomName: currentRoom, 
+                data: data 
+            })
         });
         
-        if (!res.ok) throw new Error(`Ошибка HTTP: ${res.status}`);
+        if (!res.ok) {
+            const errorData = await res.json();
+            throw new Error(errorData.error || `Ошибка HTTP: ${res.status}`);
+        }
+
+        console.log("✅ Синхронизация с PostgreSQL успешна");
         return await res.json();
     } catch (err) {
         console.error("❌ Ошибка при сохранении:", err);
         throw err; 
     }
 };
-
 // ... в функции loadDBFromServer не забудь поменять на:
 // window.isDataLoadedFromServer = true;
 

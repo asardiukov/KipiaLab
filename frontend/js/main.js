@@ -30,7 +30,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         // 3. Первичная отрисовка
         console.log("📊 Запуск первичной отрисовки...");
         updateGroupFilters(); 
-        renderDashboard();
+        //renderDashboard();
         initCharts();
     } else {
         console.warn("⚠️ Работаем в офлайн-режиме или база пуста");
